@@ -31,6 +31,7 @@
 - 使用 `npm` 和 `package-lock.json`，而不是 `pnpm`
 - 已有 `/`、`/dashboard`、`/settings`、`/notebooks`、`/notebooks/[id]` 页面雏形
 - 当前首页仍有 create-next-app 模板内容，需要清理
+- 后续以 NotebookLM 的页面逻辑为准：`/notebooks` 是登录后的 Notebook Library，`/notebooks/[id]` 是单个 Notebook Workspace，`/dashboard` 第一版暂不作为主入口
 
 因此后续计划统一采用：
 
@@ -184,29 +185,78 @@ Chat with your own sources.
 
 ## 目标
 
-做出产品的基本信息架构。
+做出接近 NotebookLM 的基本信息架构。
+
+NotebookLM 的核心不是传统 SaaS Dashboard，而是：
+
+```txt
+Notebook Library
+-> Notebook Workspace
+   -> Sources
+   -> Chat
+   -> Notes / Studio
+```
+
+因此第一版把 `/notebooks` 作为登录后的主入口，`/notebooks/[id]` 作为真正的工作台。`/dashboard` 暂时不实现，或者只做 redirect 到 `/notebooks`。
 
 ## 页面
 
 ```txt
 /
-/dashboard
 /notebooks
 /notebooks/[id]
 /settings
+```
+
+页面职责：
+
+```txt
+/
+登录前首页，介绍 SourceMind，提供登录/开始使用入口
+
+/notebooks
+Notebook Library：创建 notebook、展示 notebook 列表、搜索/排序占位、空状态
+
+/notebooks/[id]
+Notebook Workspace：左侧 sources，中间 chat，右侧 notes/studio 占位
+
+/settings
+账户、模型、偏好设置
+
+/dashboard
+第一版暂不做，或 redirect 到 /notebooks
+```
+
+Notebook Workspace 的第一版三栏职责：
+
+```txt
+Sources
+- 添加资料
+- 展示资料列表
+- 展示 processing / ready / failed 状态
+- 后续支持选择哪些 source 参与回答
+
+Chat
+- 展示基于资料的对话
+- 显示建议问题占位
+- 回答中展示 citations
+
+Notes / Studio
+- 第一版只做占位
+- 后续保存回答、手写 notes、生成摘要或学习指南
 ```
 
 ## 建议目录
 
 ```txt
 app/page.tsx
-app/dashboard/page.tsx
 app/notebooks/page.tsx
 app/notebooks/[id]/page.tsx
 app/settings/page.tsx
 components/app-sidebar.tsx
 components/header.tsx
 components/shell.tsx
+components/notebook-workspace.tsx
 ```
 
 ## 练习重点
@@ -220,9 +270,10 @@ components/shell.tsx
 ## 验收标准
 
 - 页面之间可以正常跳转
-- Dashboard 有 Notebook 列表区域
-- Notebook 详情页有资料区域和聊天区域占位
+- `/notebooks` 有 Notebook Library 区域
+- `/notebooks/[id]` 有 Sources、Chat、Notes/Studio 三栏工作台占位
 - Settings 有基础设置占位
+- 如果保留 `/dashboard`，它会跳转到 `/notebooks`
 
 ---
 
@@ -321,7 +372,7 @@ model Message {
 - 创建 Notebook
 - 修改 Notebook 标题
 - 删除 Notebook
-- Dashboard 展示 Notebook 列表
+- `/notebooks` 展示 Notebook 列表
 - 点击进入 Notebook 详情页
 
 ## 实现建议
@@ -329,7 +380,7 @@ model Message {
 表单类 mutation 优先用 Server Actions：
 
 ```txt
-app/dashboard/actions.ts
+app/notebooks/actions.ts
 app/notebooks/[id]/actions.ts
 ```
 
@@ -343,7 +394,7 @@ if (!user) throw new Error("Unauthorized")
 ## 验收标准
 
 ```txt
-打开 Dashboard
+打开 /notebooks
 创建 Notebook
 进入详情页
 修改标题
@@ -391,7 +442,8 @@ GitHub OAuth：更接近真实 SaaS，但需要配置 OAuth App
 
 ## 任务
 
-- 未登录访问 `/dashboard` 自动跳转登录页
+- 未登录访问 `/notebooks` 自动跳转登录页
+- 未登录访问 `/notebooks/[id]` 自动跳转登录页
 - 用户只能看到自己的 Notebook
 - 用户不能通过 URL 访问别人的 Notebook
 - 所有 Server Actions 检查当前用户
@@ -414,7 +466,7 @@ const notebook = await prisma.notebook.findFirst({
 A 用户创建 Notebook
 B 用户看不到
 B 用户访问 A 的 notebook URL 会被拒绝或 404
-未登录不能进入 dashboard
+未登录不能进入 /notebooks
 ```
 
 ---
@@ -899,7 +951,7 @@ README 能指导别人本地启动
 | 天数 | 主题 | 产出 |
 | --- | --- | --- |
 | Day 0 | 整理项目基线 | 当前仓库变成 SourceMind 起点 |
-| Day 1 | 页面骨架 | 首页、Dashboard、Notebook、Settings |
+| Day 1 | 页面骨架 | 首页、Notebook Library、Notebook Workspace、Settings |
 | Day 2 | 数据库 | Prisma schema、dev.db、Prisma client |
 | Day 3 | CRUD | Notebook 创建、修改、删除 |
 | Day 4 | 认证 | 用户可登录退出 |
